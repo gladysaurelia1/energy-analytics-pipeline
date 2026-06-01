@@ -1,52 +1,33 @@
 # Australian Energy Consumption Analytics Pipeline
-A machine learning system that forecasts energy consumption across Australian states using historical patterns. Built as a portfolio project to demonstrate end-to-end data engineering and ML skills.
+A machine learning pipeline that forecasts energy consumption across 5 Australian states. Built as a portfolio project to demonstrate real-world data engineering and ML skills, from raw data through to a live dashboard.
 
 ### Why I Built This  
-I created this project while applying for graduate roles in data science and ML engineering. I wanted to show that I could:  
-
-- Build a complete ML pipeline, not just train a model  
-- Handle real-world data problems like overfitting
-- Create something practical that could actually be deployed
-- Document my work clearly for technical and non-technical audiences
-  
-The project uses synthetic data based on Australian Energy Market Operator (AEMO) patterns because I don't have access to their API, but the methodology would work with real data.
+I built this while applying for graduate roles in data science and other digital roles. I wanted a project that went beyond Jupyter notebooks, something I could actually run end-to-end and show recruiters as a working system.
+The data is synthetic, modelled on AEMO consumption patterns, because live API access requires an enterprise agreement. The methodology translates directly to real data.
 
 What It Does  
-This system processes energy consumption data and forecasts future usage patterns. Here's the flow:
-1. Data Generation - Creates realistic energy consumption records  
+This system processes energy consumption data and forecasts future usage patterns.
+1. Data Generation - Creates synthetic energy consumption records at 5-minute intervals for NSW, VIC, QLD, SA and WA. The base loads, daily shapes and seasonal patterns are calibrated against publicly available AEMO historical figures. Real data would slot in here with minimal changes.
 
-- 5-minute intervals over 30 days
-- Five Australian states (NSW, VIC, QLD, SA, WA)
-- Simulates daily peaks, weekend dips, and seasonal variations
+2. Data Processing - Cleans duplicates and outliers, then builds the feature set. Time features (hour, day of week, month, business hours flag) and temperature are extracted. Lag features are generated for exploratory analysis but intentionally excluded from model training.
 
-2. Data Processing - Cleans and prepares data for ML
+3. Model Training - Trains a Random Forest model separately for each state. Five separate models rather than one shared model with a state encoding feature.
 
-- Removes outliers using statistical methods
-- Creates time-based features (hour, day, month)
-- Adds weather data (temperature)
-
-3. Model Training - Builds forecasting models
-
-- Random Forest algorithm (100 decision trees)
-- Separate model per state for regional patterns
-- Achieves 87% accuracy on unseen data
-
-4. Visualization - Interactive web dashboard
-
-- Real-time consumption charts
-- Pattern analysis (peak hours, seasonal trends)
-- State-by-state comparisons
+4. Visualization - Streamlit app showing consumption trends, state comparisons, hourly patterns and model performance.
 
 
 ### Results
-The models perform well and generalize to new data:
-
-- Accuracy (R²): 87.4% - better than industry standard of 70-85%
-- Error (MAPE): 3.5% - predictions typically within 3.5% of actual
-- Stability: Consistent performance across all five states
-- No overfitting: Only 4.5% difference between training and test accuracy  
-
-This means the system could reasonably be used for operational forecasting in a real energy grid.
+The per-state models hit the target range after fixing the issues in earlier versions:
+ 
+| State | Test R2 | MAPE | Train/test gap |
+|-------|---------|------|----------------|
+| NSW   | 85.2%   | 3.9% | 5.0%           |
+| VIC   | 85.3%   | 3.9% | 5.0%           |
+| QLD   | 84.4%   | 3.9% | 5.2%           |
+| SA    | 84.4%   | 4.0% | 5.6%           |
+| WA    | 84.0%   | 4.1% | 6.1%           |
+ 
+Average test R2: **84.7%** -- in the 70-85% range cited in grid forecasting literature for short-horizon consumption models. The train/test gap of 5.4% is low enough that I'm comfortable the models are generalising rather than memorising.
 
 ```python 
 Quick Start
@@ -58,12 +39,32 @@ python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-# Run pipeline (generates data, trains models)
+# Run full pipeline 
 python src/main.py
 
 # Launch dashboard
 streamlit run src/dashboard.py
 
+```
+## Project structure
+ 
+```
+src/
+  main.py             pipeline orchestrator
+  extract_data.py     synthetic data generation
+  transform_data.py   cleaning and feature engineering
+  train_model.py      per-state Random Forest training
+  dashboard.py        Streamlit analytics dashboard
+ 
+experiments/
+  v1_extreme_overfitting.py   99.4% R2 -- data leakage via lag features
+  v2_statedominance.py        97.0% R2 -- state encoding dominated features
+  README.md                   walkthrough of what went wrong and why
+ 
+data/
+  raw/                generated CSVs (gitignored)
+  processed/          cleaned, feature-engineered CSV (gitignored)
+  models/             trained model PKLs (gitignored)
 ```
 ## Technical Details
 ### Why Random Forest?

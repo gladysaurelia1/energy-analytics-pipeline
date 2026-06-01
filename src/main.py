@@ -1,194 +1,182 @@
 """
-Main Pipeline Orchestrator
-Runs the complete energy analytics pipeline
+main.py
+
+Pipeline orchestrator for the Australian energy analytics project.
+Runs three steps in sequence: extract -> transform -> train.
+
+Usage:
+    python src/main.py           # default 30 days
+    python src/main.py --days 60
+    python src/main.py --days 7  # quick smoke test
 """
 
+import argparse
 import logging
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
-# Add src to path for imports
+# Make sure sibling modules are importable when called from the project root
 sys.path.insert(0, str(Path(__file__).parent))
 
 from extract_data import generate_energy_data
-from transform_data import load_latest_raw_data, clean_data, engineer_features, save_processed_data
+from transform_data import (
+    load_latest_raw_data,
+    clean_data,
+    engineer_features,
+    save_processed_data,
+)
 from train_model import train_pipeline
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
+    format="%(asctime)s  %(levelname)s  %(message)s",
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler('pipeline.log')
-    ]
+        logging.FileHandler("pipeline.log"),
+    ],
 )
 logger = logging.getLogger(__name__)
 
-def print_step_header(step_num, step_name):
-    """Print formatted step header"""
-    print(f"\n{'='*70}")
-    print(f"  STEP {step_num}/3: {step_name}")
-    print(f"{'='*70}\n")
 
-def step_1_extract_data(days_back=30):
-    """Step 1: Extract energy consumption data"""
-    print_step_header(1, "DATA EXTRACTION")
-    
+# ---------------------------------------------------------------------------
+# Step runners
+# ---------------------------------------------------------------------------
+
+def step_1_extract(days_back):
+    print(f"\n{'='*65}")
+    print(f"  STEP 1/3: DATA EXTRACTION")
+    print(f"{'='*65}\n")
+
     try:
-        logger.info(f"Generating {days_back} days of energy data...")
         df = generate_energy_data(days_back=days_back)
-        
-        logger.info(f"Successfully generated {len(df):,} records")
-        logger.info(f"States: {', '.join(sorted(df['state'].unique()))}")
-        logger.info(f"Date range: {df['timestamp'].min()} to {df['timestamp'].max()}")
-        
+        logger.info(f"Generated {len(df):,} records")
+        logger.info(f"States : {', '.join(sorted(df['state'].unique()))}")
+        logger.info(f"Range  : {df['timestamp'].min()} to {df['timestamp'].max()}")
         return True
-        
-    except Exception as e:
-        logger.error(f"Data extraction failed: {str(e)}")
+    except Exception as exc:
+        logger.error(f"Step 1 failed: {exc}")
         return False
 
-def step_2_transform_data():
-    """Step 2: Transform and clean data"""
-    print_step_header(2, "DATA TRANSFORMATION")
-    
+
+def step_2_transform():
+    print(f"\n{'='*65}")
+    print(f"  STEP 2/3: DATA TRANSFORMATION")
+    print(f"{'='*65}\n")
+
     try:
-        logger.info("Loading raw data...")
         df = load_latest_raw_data()
         logger.info(f"Loaded {len(df):,} raw records")
-        
-        logger.info("Cleaning data...")
+
         df = clean_data(df)
-        logger.info(f"Cleaned data: {len(df):,} records remaining")
-        
-        logger.info("Engineering features...")
+        logger.info(f"After cleaning: {len(df):,} records")
+
         df = engineer_features(df)
-        logger.info(f"Created {len(df.columns)} total features")
-        
-        logger.info("Saving processed data...")
-        output_path = save_processed_data(df)
-        logger.info(f"Saved to {output_path}")
-        
+        logger.info(f"Features built: {len(df.columns)} columns total")
+
+        out = save_processed_data(df)
+        logger.info(f"Saved to {out}")
         return True
-        
-    except Exception as e:
-        logger.error(f"Data transformation failed: {str(e)}")
+    except Exception as exc:
+        logger.error(f"Step 2 failed: {exc}")
         return False
 
-def step_3_train_models():
-    """Step 3: Train ML models"""
-    print_step_header(3, "MODEL TRAINING")
-    
+
+def step_3_train():
+    print(f"\n{'='*65}")
+    print(f"  STEP 3/3: MODEL TRAINING")
+    print(f"{'='*65}\n")
+
     try:
-        logger.info("Training Random Forest models per state...")
-        models, metrics = train_pipeline()
-        logger.info("All models trained successfully")
+        train_pipeline()
         return True
-        
-    except Exception as e:
-        logger.error(f"Model training failed: {str(e)}")
+    except Exception as exc:
+        logger.error(f"Step 3 failed: {exc}")
         return False
 
-def print_success_summary():
-    """Print completion message"""
-    print("\n" + "="*70)
-    print("PIPELINE COMPLETED SUCCESSFULLY")
-    print("="*70)
-    print("\nGenerated files:")
-    print("  - data/raw/energy_data_*.csv")
-    print("  - data/processed/processed_energy_data.csv")
-    print("  - data/models/energy_forecast_models.pkl")
-    print("\nNext steps:")
-    print("  1. Launch dashboard: streamlit run src/dashboard.py")
-    print("  2. View at: http://localhost:8501")
-    print("="*70 + "\n")
-    
-    logger.info("Pipeline execution completed successfully")
 
-def print_failure_summary(failed_step):
-    """Print failure message"""
-    print("\n" + "="*70)
-    print(f"PIPELINE FAILED AT: {failed_step}")
-    print("="*70)
-    print("\nTroubleshooting steps:")
+# ---------------------------------------------------------------------------
+# Summary helpers
+# ---------------------------------------------------------------------------
+
+def print_success():
+    print(f"\n{'='*65}")
+    print("  PIPELINE COMPLETE")
+    print(f"{'='*65}")
+    print("\nOutput files:")
+    print("  data/raw/energy_data_*.csv")
+    print("  data/processed/processed_energy_data.csv")
+    print("  data/models/energy_forecast_models.pkl")
+    print("\nNext step:")
+    print("  streamlit run src/dashboard.py")
+    print(f"{'='*65}\n")
+    logger.info("Pipeline completed successfully.")
+
+
+def print_failure(step_name):
+    print(f"\n{'='*65}")
+    print(f"  PIPELINE FAILED: {step_name}")
+    print(f"{'='*65}")
+    print("\nTroubleshooting:")
     print("  1. Check the error message above")
-    print("  2. Verify dependencies: pip install -r requirements.txt")
-    print("  3. Check log file: pipeline.log")
-    print("="*70 + "\n")
-    
-    logger.error(f"Pipeline failed at: {failed_step}")
+    print("  2. pip install -r requirements.txt")
+    print("  3. Check pipeline.log for the full trace")
+    print(f"{'='*65}\n")
+    logger.error(f"Pipeline failed at: {step_name}")
 
-def run_full_pipeline(days_back=30):
-    """
-    Execute the complete energy analytics pipeline
-    
-    Args:
-        days_back: Number of days of historical data to generate
-    
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    logger.info("Starting energy analytics pipeline")
-    logger.info(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    logger.info("="*70)
-    
-    # Step 1: Extract Data
-    if not step_1_extract_data(days_back):
-        print_failure_summary("Step 1: Data Extraction")
+
+# ---------------------------------------------------------------------------
+# Main entry point
+# ---------------------------------------------------------------------------
+
+def run(days_back=30):
+    logger.info(f"Pipeline started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.info("=" * 65)
+
+    if not step_1_extract(days_back):
+        print_failure("Step 1: Data Extraction")
         return False
-    
-    # Step 2: Transform Data
-    if not step_2_transform_data():
-        print_failure_summary("Step 2: Data Transformation")
+
+    if not step_2_transform():
+        print_failure("Step 2: Data Transformation")
         return False
-    
-    # Step 3: Train Models
-    if not step_3_train_models():
-        print_failure_summary("Step 3: Model Training")
+
+    if not step_3_train():
+        print_failure("Step 3: Model Training")
         return False
-    
-    # Success
-    print_success_summary()
+
+    print_success()
     return True
 
+
 def main():
-    """Main entry point"""
-    import argparse
-    
     parser = argparse.ArgumentParser(
-        description='Australian Energy Analytics Pipeline',
+        description="Australian Energy Analytics Pipeline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python src/main.py                    # Run with default 30 days
-  python src/main.py --days 60          # Generate 60 days of data
-  python src/main.py --days 7           # Quick test with 7 days
-        """
+  python src/main.py
+  python src/main.py --days 60
+  python src/main.py --days 7
+        """,
     )
-    
     parser.add_argument(
-        '--days',
+        "--days",
         type=int,
         default=30,
-        help='Number of days of historical data to generate (default: 30)'
+        help="Days of historical data to generate (default: 30, min: 7)",
     )
-    
     args = parser.parse_args()
-    
-    # Validate input
+
     if args.days < 7:
-        logger.error("Error: Minimum 7 days required for meaningful training")
+        logger.error("Minimum 7 days required for a meaningful train/test split.")
         sys.exit(1)
-    
     if args.days > 365:
-        logger.warning("Warning: Generating >365 days will take longer")
-    
-    # Run pipeline
-    success = run_full_pipeline(days_back=args.days)
-    
+        logger.warning("Generating more than 365 days will take several minutes.")
+
+    success = run(days_back=args.days)
     sys.exit(0 if success else 1)
+
 
 if __name__ == "__main__":
     main()

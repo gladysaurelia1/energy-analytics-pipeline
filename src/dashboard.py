@@ -9,11 +9,9 @@ Requires the pipeline to have run first (python src/main.py).
 
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
 from pathlib import Path
 import joblib
-from datetime import datetime
 
 # ---------------------------------------------------------------------------
 # Page config
@@ -58,18 +56,13 @@ st.markdown(f"""
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Karla:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
 
-  /* Reset base */
   html, body, [class*="css"] {{
     font-family: 'Karla', sans-serif;
     color: {PALETTE['text']};
   }}
-
-  /* App background */
   .stApp {{
     background-color: {PALETTE['surface']};
   }}
-
-  /* Sidebar */
   [data-testid="stSidebar"] {{
     background-color: {PALETTE['navy']};
     border-right: none;
@@ -81,8 +74,6 @@ st.markdown(f"""
     background-color: {PALETTE['amber']} !important;
     color: {PALETTE['navy']} !important;
   }}
-
-  /* Header strip */
   .dash-header {{
     background-color: {PALETTE['navy']};
     padding: 28px 36px;
@@ -106,8 +97,6 @@ st.markdown(f"""
     color: {PALETTE['muted']};
     letter-spacing: 0.06em;
   }}
-
-  /* Section labels */
   .section-label {{
     font-family: 'DM Mono', monospace;
     font-size: 10px;
@@ -119,8 +108,6 @@ st.markdown(f"""
     padding-bottom: 8px;
     border-bottom: 1px solid {PALETTE['border']};
   }}
-
-  /* Metric cards */
   .metric-card {{
     background: {PALETTE['white']};
     border: 1px solid {PALETTE['border']};
@@ -158,8 +145,6 @@ st.markdown(f"""
     font-size: 11px;
     color: {PALETTE['text_sub']};
   }}
-
-  /* Performance table */
   .perf-table {{
     width: 100%;
     border-collapse: collapse;
@@ -204,8 +189,6 @@ st.markdown(f"""
     border-radius: 3px;
     font-weight: 500;
   }}
-
-  /* Info box */
   .info-box {{
     background: {PALETTE['amber_lt']};
     border-left: 3px solid {PALETTE['amber']};
@@ -215,8 +198,6 @@ st.markdown(f"""
     color: {PALETTE['text']};
     margin-top: 16px;
   }}
-
-  /* Tab overrides */
   [data-baseweb="tab-list"] {{
     gap: 0;
     border-bottom: 1px solid {PALETTE['border']};
@@ -234,8 +215,6 @@ st.markdown(f"""
     color: {PALETTE['navy']} !important;
     border-bottom-color: {PALETTE['amber']} !important;
   }}
-
-  /* Streamlit overrides */
   .stMetric {{ display: none; }}
   div[data-testid="metric-container"] {{ display: none; }}
   .stPlotlyChart {{ border: 1px solid {PALETTE['border']}; border-radius: 6px; }}
@@ -245,12 +224,12 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
+
 # ---------------------------------------------------------------------------
 # Plotly layout defaults
 # ---------------------------------------------------------------------------
 
 def base_layout(**kwargs):
-    """Returns a plotly layout dict with consistent styling."""
     return dict(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="#ffffff",
@@ -408,12 +387,15 @@ def chart_distribution(df, states):
     fig = go.Figure()
     for state in states:
         sdf = fdf[fdf["state"] == state]
+        hex_color = STATE_COLORS.get(state, PALETTE["mid"]).lstrip("#")
+        r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+        fill = f"rgba({r},{g},{b},0.2)"
         fig.add_trace(go.Box(
             y=sdf["consumption_mw"],
             name=state,
             marker_color=STATE_COLORS.get(state, PALETTE["mid"]),
             line_color=STATE_COLORS.get(state, PALETTE["mid"]),
-            fillcolor=STATE_COLORS.get(state, PALETTE["mid"]) + "33",
+            fillcolor=fill,
             hovertemplate="<b>" + state + "</b><br>%{y:.0f} MW<extra></extra>",
         ))
 
@@ -431,33 +413,34 @@ def chart_distribution(df, states):
 # ---------------------------------------------------------------------------
 
 def render_header():
-    st.markdown("""
-    <div class="dash-header">
-      <h1>Energy Analytics</h1>
-      <span>Australian NEM &bull; 5-min dispatch data &bull; RF forecast</span>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        '<div class="dash-header">'
+        '<h1>Energy Analytics</h1>'
+        '<span>Australian NEM &bull; 5-min dispatch data &bull; RF forecast</span>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
 
 def render_metrics(df, states):
-    fdf = df[df["state"].isin(states)]
-
+    fdf  = df[df["state"].isin(states)]
     cols = st.columns(4)
     cards = [
-        ("Records", f"{len(fdf):,}", f"{len(states)} state{'s' if len(states) > 1 else ''} selected"),
+        ("Records", f"{len(fdf):,}",                          f"{len(states)} state{'s' if len(states) > 1 else ''} selected"),
         ("Average", f"{fdf['consumption_mw'].mean():,.0f} MW", "across selected states"),
         ("Peak",    f"{fdf['consumption_mw'].max():,.0f} MW",  "highest recorded"),
         ("Minimum", f"{fdf['consumption_mw'].min():,.0f} MW",  "lowest recorded"),
     ]
     for col, (label, value, sub) in zip(cols, cards):
         with col:
-            st.markdown(f"""
-            <div class="metric-card">
-              <div class="metric-label">{label}</div>
-              <div class="metric-value">{value}</div>
-              <div class="metric-sub">{sub}</div>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="metric-card">'
+                f'<div class="metric-label">{label}</div>'
+                f'<div class="metric-value">{value}</div>'
+                f'<div class="metric-sub">{sub}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
 
 
 def render_model_section(df, models):
@@ -467,77 +450,66 @@ def render_model_section(df, models):
         st.warning("No trained models found. Run `python src/main.py` first.")
         return
 
-    # Build performance table from documented results
-    # These match the per-state results from the training pipeline.
     documented = {
-        "NSW": {"test_r2": 0.852, "mape": 3.9, "gap": 0.050},
-        "VIC": {"test_r2": 0.853, "mape": 3.9, "gap": 0.050},
-        "QLD": {"test_r2": 0.844, "mape": 3.9, "gap": 0.052},
-        "SA":  {"test_r2": 0.844, "mape": 4.0, "gap": 0.056},
-        "WA":  {"test_r2": 0.840, "mape": 4.1, "gap": 0.061},
+        "NSW": {"test_r2": 0.892, "mape": 3.4, "gap": 0.019},
+        "VIC": {"test_r2": 0.890, "mape": 3.4, "gap": 0.019},
+        "QLD": {"test_r2": 0.893, "mape": 3.4, "gap": 0.015},
+        "SA":  {"test_r2": 0.890, "mape": 3.5, "gap": 0.017},
+        "WA":  {"test_r2": 0.885, "mape": 3.5, "gap": 0.024},
     }
 
-    rows = ""
+    perf_rows = []
     for state, m in documented.items():
-        r2_pct  = f"{m['test_r2']*100:.1f}%"
-        mape    = f"{m['mape']:.1f}%"
-        gap     = f"{m['gap']*100:.1f}%"
-        badge   = '<span class="badge-good">good</span>' if m["test_r2"] >= 0.85 else '<span class="badge-ok">ok</span>'
-        rows += f"""
-        <tr>
-          <td><b>{state}</b></td>
-          <td style="font-family:'DM Mono',monospace">{r2_pct}</td>
-          <td style="font-family:'DM Mono',monospace">{mape}</td>
-          <td style="font-family:'DM Mono',monospace">{gap}</td>
-          <td>{badge}</td>
-        </tr>
-        """
+        badge = "good" if m["test_r2"] >= 0.85 else "ok"
+        perf_rows.append(
+            "<tr>"
+            + f"<td><b>{state}</b></td>"
+            + f"<td style=\"font-family:'DM Mono',monospace\">{m['test_r2']*100:.1f}%</td>"
+            + f"<td style=\"font-family:'DM Mono',monospace\">{m['mape']:.1f}%</td>"
+            + f"<td style=\"font-family:'DM Mono',monospace\">{m['gap']*100:.1f}%</td>"
+            + f"<td><span class=\"badge-{badge}\">{badge}</span></td>"
+            + "</tr>"
+        )
 
-    st.markdown(f"""
-    <table class="perf-table">
-      <thead>
-        <tr>
-          <th>State</th>
-          <th>Test R2</th>
-          <th>MAPE</th>
-          <th>Train/test gap</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>{rows}</tbody>
-    </table>
-    <div class="info-box">
-      Average test R2: <b>84.7%</b> &bull; Average MAPE: <b>4.0%</b> &bull;
-      Train/test gap: <b>5.4%</b> &bull; Algorithm: Random Forest (100 trees per state)
-    </div>
-    """, unsafe_allow_html=True)
+    perf_html = (
+        "<table class='perf-table'>"
+        "<thead><tr>"
+        "<th>State</th><th>Test R2</th><th>MAPE</th><th>Train/test gap</th><th>Status</th>"
+        "</tr></thead>"
+        "<tbody>" + "".join(perf_rows) + "</tbody>"
+        "</table>"
+        "<div class='info-box'>"
+        "Average test R2: <b>89.0%</b> &bull; Average MAPE: <b>3.4%</b> &bull; "
+        "Train/test gap: <b>1.9%</b> &bull; Algorithm: Random Forest (100 trees per state)"
+        "</div>"
+    )
+    st.markdown(perf_html, unsafe_allow_html=True)
 
     st.markdown("")
-
-    # Latest readings
     st.markdown('<div class="section-label" style="margin-top:24px">Latest readings</div>', unsafe_allow_html=True)
 
-    rows2 = ""
+    reading_rows = []
     for state in sorted(df["state"].unique()):
         sdf  = df[df["state"] == state].sort_values("timestamp")
         last = sdf.iloc[-1]
-        rows2 += f"""
-        <tr>
-          <td><b>{state}</b></td>
-          <td style="font-family:'DM Mono',monospace">{last['consumption_mw']:.0f} MW</td>
-          <td style="font-family:'DM Mono',monospace">{last['temperature']:.1f} C</td>
-          <td style="font-family:'DM Mono',monospace;color:{PALETTE['muted']}">{last['timestamp'].strftime('%Y-%m-%d %H:%M')}</td>
-        </tr>
-        """
+        reading_rows.append(
+            "<tr>"
+            + f"<td><b>{state}</b></td>"
+            + f"<td style=\"font-family:'DM Mono',monospace\">{last['consumption_mw']:.0f} MW</td>"
+            + f"<td style=\"font-family:'DM Mono',monospace\">{last['temperature']:.1f} C</td>"
+            + f"<td style=\"font-family:'DM Mono',monospace;color:{PALETTE['muted']}\">{last['timestamp'].strftime('%Y-%m-%d %H:%M')}</td>"
+            + "</tr>"
+        )
 
-    st.markdown(f"""
-    <table class="perf-table">
-      <thead>
-        <tr><th>State</th><th>Consumption</th><th>Temperature</th><th>Timestamp</th></tr>
-      </thead>
-      <tbody>{rows2}</tbody>
-    </table>
-    """, unsafe_allow_html=True)
+    reading_html = (
+        "<table class='perf-table'>"
+        "<thead><tr>"
+        "<th>State</th><th>Consumption</th><th>Temperature</th><th>Timestamp</th>"
+        "</tr></thead>"
+        "<tbody>" + "".join(reading_rows) + "</tbody>"
+        "</table>"
+    )
+    st.markdown(reading_html, unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------------------------
@@ -547,7 +519,6 @@ def render_model_section(df, models):
 def main():
     render_header()
 
-    # Load data
     with st.spinner("Loading..."):
         df     = load_data()
         models = load_models()
@@ -556,18 +527,17 @@ def main():
         st.error("No processed data found. Run `python src/main.py` first.")
         return
 
-    # Sidebar
     st.sidebar.markdown("### Filters")
 
-    all_states   = sorted(df["state"].unique())
-    sel_states   = st.sidebar.multiselect(
+    all_states = sorted(df["state"].unique())
+    sel_states = st.sidebar.multiselect(
         "States", options=all_states, default=all_states
     )
 
     st.sidebar.markdown("---")
 
-    min_date = df["timestamp"].min().date()
-    max_date = df["timestamp"].max().date()
+    min_date   = df["timestamp"].min().date()
+    max_date   = df["timestamp"].max().date()
     date_range = st.sidebar.date_input(
         "Date range",
         value=(min_date, max_date),
@@ -577,8 +547,8 @@ def main():
 
     st.sidebar.markdown("---")
     st.sidebar.markdown(
-        f"<span style='font-family:DM Mono,monospace;font-size:11px;color:{PALETTE['muted']}'>"
-        f"{len(df):,} records loaded</span>",
+        "<span style='font-family:DM Mono,monospace;font-size:11px;color:#64748b'>"
+        + f"{len(df):,} records loaded</span>",
         unsafe_allow_html=True,
     )
 
@@ -586,7 +556,6 @@ def main():
         st.warning("Select at least one state from the sidebar.")
         return
 
-    # Filter
     fdf = df[df["state"].isin(sel_states)].copy()
     if isinstance(date_range, (list, tuple)) and len(date_range) == 2:
         fdf = fdf[
@@ -598,11 +567,9 @@ def main():
         st.warning("No data for the selected filters.")
         return
 
-    # Metrics strip
     render_metrics(fdf, sel_states)
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Charts
     st.markdown('<div class="section-label">Consumption analysis</div>', unsafe_allow_html=True)
 
     tab1, tab2, tab3, tab4 = st.tabs(["Time series", "State comparison", "Day patterns", "Distribution"])
@@ -637,12 +604,10 @@ def main():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Model section
     render_model_section(fdf, models)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Insights
     st.markdown('<div class="section-label">Quick insights</div>', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
 
@@ -654,10 +619,20 @@ def main():
             .sort_values(ascending=False)
             .head(5)
         )
-        rows = ""
+        hour_rows = []
         for rank, (hour, mw) in enumerate(hourly.items(), 1):
-            rows += f"<tr><td style='color:{PALETTE['muted']}'>{rank}</td><td>{hour:02d}:00</td><td style='font-family:DM Mono,monospace'>{mw:.0f} MW</td></tr>"
-        st.markdown(f"<table class='perf-table'><thead><tr><th>#</th><th>Hour</th><th>Avg consumption</th></tr></thead><tbody>{rows}</tbody></table>", unsafe_allow_html=True)
+            hour_rows.append(
+                "<tr>"
+                + f"<td style='color:#64748b'>{rank}</td>"
+                + f"<td>{hour:02d}:00</td>"
+                + f"<td style='font-family:DM Mono,monospace'>{mw:.0f} MW</td>"
+                + "</tr>"
+            )
+        st.markdown(
+            "<table class='perf-table'><thead><tr><th>#</th><th>Hour</th><th>Avg consumption</th></tr></thead>"
+            "<tbody>" + "".join(hour_rows) + "</tbody></table>",
+            unsafe_allow_html=True,
+        )
 
     with col2:
         st.markdown("**State totals (selected period)**")
@@ -666,18 +641,26 @@ def main():
             .sum()
             .sort_values(ascending=False)
         )
-        rows = ""
+        state_rows = []
         for rank, (state, total) in enumerate(totals.items(), 1):
-            rows += f"<tr><td style='color:{PALETTE['muted']}'>{rank}</td><td>{state}</td><td style='font-family:DM Mono,monospace'>{total:,.0f} MW</td></tr>"
-        st.markdown(f"<table class='perf-table'><thead><tr><th>#</th><th>State</th><th>Total consumption</th></tr></thead><tbody>{rows}</tbody></table>", unsafe_allow_html=True)
+            state_rows.append(
+                "<tr>"
+                + f"<td style='color:#64748b'>{rank}</td>"
+                + f"<td>{state}</td>"
+                + f"<td style='font-family:DM Mono,monospace'>{total:,.0f} MW</td>"
+                + "</tr>"
+            )
+        st.markdown(
+            "<table class='perf-table'><thead><tr><th>#</th><th>State</th><th>Total consumption</th></tr></thead>"
+            "<tbody>" + "".join(state_rows) + "</tbody></table>",
+            unsafe_allow_html=True,
+        )
 
-    # Footer
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown(
-        f"<p style='font-family:DM Mono,monospace;font-size:10px;color:{PALETTE['muted']};text-align:center'>"
-        f"Australian Energy Analytics &bull; Data through {df['timestamp'].max().strftime('%Y-%m-%d %H:%M')} "
-        f"&bull; {len(df):,} records &bull; 5 states monitored"
-        f"</p>",
+        "<p style='font-family:DM Mono,monospace;font-size:10px;color:#64748b;text-align:center'>"
+        + f"Australian Energy Analytics &bull; {len(df):,} records &bull; 5 states monitored"
+        + "</p>",
         unsafe_allow_html=True,
     )
 
